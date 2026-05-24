@@ -1,0 +1,54 @@
+name: Build IranVPN Android APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: aarch64-linux-android
+        override: true
+
+    - name: Setup Android NDK
+      run: |
+        echo "y" | sdkmanager "ndk;25.1.8937393"
+        echo "y" | sdkmanager --licenses
+
+    - name: Fetch tun2socks prebuilts
+      run: ./scripts/fetch-tun2socks-prebuilt.sh
+
+    - name: Build Rust Core
+      run: ./scripts/build-android-core.sh
+      env:
+        ANDROID_HOME: ${{ env.ANDROID_HOME }}
+        NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/25.1.8937393
+
+    - name: Build APK with Gradle
+      run: |
+        cd android
+        chmod +x gradlew
+        ./gradlew assembleDebug
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: iranvpn-app-debug
+        path: android/app/build/outputs/apk/debug/app-debug.apk
